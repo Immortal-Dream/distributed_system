@@ -8,21 +8,17 @@
 
 STOPWORDS_FILE="./d/stopwords.txt"
 
-# Ensure that the stopwords file exists.
+# Ensure the stopwords file exists
 if [ ! -f "$STOPWORDS_FILE" ]; then
   echo "Error: The specified stopwords file '$STOPWORDS_FILE' cannot be found."
   exit 1
 fi
 
-# 1. Convert all uppercase letters to lowercase.
-tr '[:upper:]' '[:lower:]' |
-# 2. Transcode input to ASCII, removing or transliterating non-ASCII characters.
-iconv -c -t ASCII//TRANSLIT |
-# 3. Replace anything that isn't a letter with a single space.
-tr -c '[:alpha:]' ' ' |
-# 4. Squeeze repeated spaces into one, then turn them into newlines, ensuring one word per line.
-tr -s ' ' '\n' |
-# 5. Omit any lines that match a stopword in the specified file.
-grep -vFx -f "$STOPWORDS_FILE" |
-# 6. Finally, remove empty lines to clean up the output.
-grep -v '^$'
+# Process the input
+tr -d '\r' |                              # Remove Windows-style carriage returns
+tr '[:upper:]' '[:lower:]' |              # Convert all uppercase letters to lowercase
+iconv -c -t ASCII//TRANSLIT |             # Transcode to ASCII, removing non-ASCII characters
+tr -c '[:alpha:]' ' ' |                   # Replace non-letter characters with spaces
+tr -s ' ' '\n' |                          # Squeeze spaces and convert to newline-separated words
+grep -vFx -f <(grep -v '^$' "$STOPWORDS_FILE") | # Remove stopwords (after cleaning stopword file)
+grep -v '^$'                              # Remove empty lines
