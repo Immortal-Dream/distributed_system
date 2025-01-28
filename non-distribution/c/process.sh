@@ -15,10 +15,9 @@ if [ ! -f "$STOPWORDS_FILE" ]; then
 fi
 
 # Process the input
-tr -d '\r' |                              # Remove Windows-style carriage returns
-tr '[:upper:]' '[:lower:]' |              # Convert all uppercase letters to lowercase
-iconv -c -t ASCII//TRANSLIT |             # Transcode to ASCII, removing non-ASCII characters
-tr -c '[:alpha:]' ' ' |                   # Replace non-letter characters with spaces
-tr -s ' ' '\n' |                          # Squeeze spaces and convert to newline-separated words
-grep -vFx -f <(grep -v '^$' "$STOPWORDS_FILE") | # Remove stopwords (after cleaning stopword file)
-grep -v '^$'                              # Remove empty lines
+tr -c '[:alpha:]' ' ' |    
+tr '[:upper:]' '[:lower:]' |              
+iconv -c -t ASCII//TRANSLIT |                            
+tr -s ' ' '\n' |                          
+grep -vFx -f "$STOPWORDS_FILE" | 
+grep -v '^$'

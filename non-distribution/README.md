@@ -42,3 +42,5 @@ The code inside `non-distribution` is organized as follows:
 
 To submit your solution, run `./scripts/submit.sh` from the root of the stencil. This will create a
 `submission.zip` file which you can upload to the autograder.
+
+## Summary
