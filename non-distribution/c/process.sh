@@ -15,9 +15,9 @@ if [ ! -f "$STOPWORDS_FILE" ]; then
 fi
 
 # Process the input
-tr -c '[:alpha:]' ' ' |    
+tr -c '[:alpha:]' ' ' |  
+tr -s ' ' '\n' |   
 tr '[:upper:]' '[:lower:]' |              
-iconv -c -t ASCII//TRANSLIT |                            
-tr -s ' ' '\n' |                          
+iconv -c -t ASCII//TRANSLIT |                                             
 grep -vFx -f "$STOPWORDS_FILE" | 
 grep -v '^$'
