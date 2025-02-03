@@ -24,11 +24,11 @@ function serialize(value) {
 
 /**
  * Helper function for serialize().
- * Traverses the value recursively and converts it into a structured object
- * that encodes its type, value, and unique IDs for circular references.
+ * Recursively traverses the value and builds a structured object
+ * that includes type tags, values, and (if applicable) unique ids.
  *
  * @param {*} value - The value to serialize.
- * @returns {object} - A structured object representing the serialized value.
+ * @returns {object} - A structured representation of the value.
  */
 function serializeHelper(value) {
   // Handle null and undefined explicitly.
@@ -37,7 +37,7 @@ function serializeHelper(value) {
 
   const type = typeof value;
 
-  // Handle primitive types: number, string, boolean.
+  // Handle primitive types.
   if (type === 'number') return { type: "number", value: value.toString() };
   if (type === 'string') return { type: "string", value: value };
   if (type === 'boolean') return { type: "boolean", value: value.toString() };
@@ -45,43 +45,46 @@ function serializeHelper(value) {
   // Handle functions.
   if (type === 'function') {
     return {
-      // Check if the function is native (has "[native code]" in its string).
+      // Distinguish native functions from non-native ones.
       type: value.toString().includes('[native code]') ? "nativefunction" : "function",
       value: value.toString()
     };
   }
 
-  // Handle objects (includes arrays, dates, errors, and plain objects).
+  // Handle objects (this covers arrays, Date, Error, plain objects, etc.)
   if (type === 'object') {
-    // If this object has already been seen, return a reference.
+    // If we've seen this object before, return a reference.
     if (circularReferences.has(value)) {
       return { type: "reference", id: circularReferences.get(value) };
     }
-    // Assign a new unique id for this object.
+    // Assign a new unique id to this object.
     const currentId = `id${++idCounter}`;
     circularReferences.set(value, currentId);
 
     // Special handling for Date objects.
     if (value instanceof Date) {
-      return { type: "date", value: value.toISOString() };
+      return { type: "date", id: currentId, value: value.toISOString() };
     }
+
     // Special handling for Error objects.
-    // Capture standard properties (name, message) and any custom properties.
     if (value instanceof Error) {
       return {
         type: "error",
+        id: currentId,
         value: {
           name: value.name,
           message: value.message,
-          // Spread any enumerable own properties.
+          // Capture additional enumerable properties.
           ...Object.fromEntries(Object.entries(value))
         }
       };
     }
+
     // Handling for arrays.
     if (Array.isArray(value)) {
       return {
         type: "array",
+        id: currentId,
         value: value.map(serializeHelper)
       };
     }
@@ -91,13 +94,13 @@ function serializeHelper(value) {
     for (const key in value) {
       if (Object.hasOwnProperty.call(value, key)) {
         const serializedValue = serializeHelper(value[key]);
+        // We stringify each property’s serialized representation.
         obj[key] = JSON.stringify(serializedValue);
       }
     }
-    return { type: "object", value: obj };
+    return { type: "object", id: currentId, value: obj };
   }
 
-  // If the type is not supported, throw an error.
   throw new Error(`Unsupported type: ${type}`);
 }
 
@@ -112,13 +115,12 @@ function deserialize(serializedString) {
   const objectMap = new Map();
   return deserializeHelper(parsed, objectMap);
 }
-
 /**
  * Helper function for deserialize().
- * Traverses the structured data and rebuilds the original value recursively.
+ * Rebuilds the original value from the structured serialized object.
  *
- * @param {object} data - The structured serialized object.
- * @param {Map} objectMap - A map for tracking objects by id to handle circular references.
+ * @param {object} data - The structured serialized representation.
+ * @param {Map} objectMap - A map to store objects by id for resolving references.
  * @returns {*} - The deserialized value.
  */
 function deserializeHelper(data, objectMap) {
@@ -138,7 +140,7 @@ function deserializeHelper(data, objectMap) {
     case "boolean":
       return data.value === "true";
     
-    // Reconstruct non-native functions via eval.
+    // Reconstruct functions using eval (note: use caution with eval).
     case "function":
       try {
         return eval(`(${data.value})`);
@@ -146,31 +148,41 @@ function deserializeHelper(data, objectMap) {
         return () => { throw Error("Deserialization failed") };
       }
     
-    // For native functions, return the raw string value.
-    // (In a more robust implementation, you might map this back to the actual function.)
+    // For native functions, we simply return the stored string representation.
+    // (A more complete solution might map this to an actual native function.)
     case "nativefunction":
       return data.value;
     
     // Reconstruct Date objects.
-    case "date":
-      return new Date(data.value);
+    case "date": {
+      const date = new Date(data.value);
+      if (data.id) objectMap.set(data.id, date);
+      return date;
+    }
     
-    // Reconstruct Error objects, including custom properties.
+    // Reconstruct Error objects.
     case "error": {
       const error = new Error(data.value.message);
-      // Assign all serialized properties to the new Error object.
+      // Apply all properties from the serialized error.
       Object.assign(error, data.value);
+      if (data.id) objectMap.set(data.id, error);
       return error;
     }
     
-    // Reconstruct arrays by mapping each element.
-    case "array":
-      return data.value.map(item => deserializeHelper(item, objectMap));
+    // Reconstruct arrays.
+    case "array": {
+      const arr = [];
+      if (data.id) objectMap.set(data.id, arr);
+      // Map each serialized element back to its value.
+      arr.push(...data.value.map(item => deserializeHelper(item, objectMap)));
+      return arr;
+    }
     
     // Reconstruct generic objects.
     case "object": {
       const obj = {};
-      // For each property, the value was stringified, so parse it back before deserialization.
+      if (data.id) objectMap.set(data.id, obj);
+      // Each property was stringified; parse it back before deserializing.
       for (const [key, valueStr] of Object.entries(data.value)) {
         const parsedValue = JSON.parse(valueStr);
         obj[key] = deserializeHelper(parsedValue, objectMap);
@@ -178,14 +190,14 @@ function deserializeHelper(data, objectMap) {
       return obj;
     }
     
-    // Resolve circular references by retrieving the referenced object.
+    // Resolve a reference using the stored object id.
     case "reference": {
       const ref = objectMap.get(data.id);
       if (!ref) throw new Error("Unresolved reference");
       return ref;
     }
     
-    default: 
+    default:
       throw new Error(`Unknown type: ${data.type}`);
   }
 }

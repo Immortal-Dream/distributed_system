@@ -74,3 +74,4 @@ You can also send messages to other nodes:
 ```js
 distribution.all.comm.send(['sid'], {node: node, service: 'status', method: 'get'}, console.log); // 8cf1c
 ```
+## Results and Reflections

@@ -153,19 +153,6 @@ test('(student) nested object/array structures', () => {
   expect(deserialized.metadata.timestamp instanceof Date).toBe(true);
 });
 
-// // Validates circular reference resolution
-// test('(3 pts) (scenario) circular reference handling', () => {
-//   const parent = { name: 'Parent' };
-//   const child = { name: 'Child' };
-//   parent.child = child;
-//   child.parent = parent;
-
-//   const serialized = util.serialize(parent);
-//   const deserialized = util.deserialize(serialized);
-
-//   expect(deserialized.child.name).toBe('Child');
-//   expect(deserialized.child.parent.name).toBe('Parent');
-// });
 
 // Ensures mixed-type array element handling
 test('(student) array with mixed types', () => {
@@ -246,16 +233,3 @@ test('(student) basic type: null', () => {
   const deserialized = util.deserialize(serialized);
   expect(deserialized).toBeNull();
 });
-// // Verifies native function serialization capability
-// test('(3 pts) (scenario) native function handling', () => {
-//   const object = {
-//     sqrt: Math.sqrt,
-//     parse: JSON.parse
-//   };
-
-//   const serialized = util.serialize(object);
-//   const deserialized = util.deserialize(serialized);
-
-//   expect(deserialized.sqrt(9)).toBe(3);
-//   expect(deserialized.parse('{"a":1}')).toEqual({ a: 1 });
-// });
