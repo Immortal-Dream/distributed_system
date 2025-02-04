@@ -74,4 +74,25 @@ You can also send messages to other nodes:
 ```js
 distribution.all.comm.send(['sid'], {node: node, service: 'status', method: 'get'}, console.log); // 8cf1c
 ```
-## Results and Reflections
+# Results and Reflections
+# M1: Serialization / Deserialization
+
+## Summary
+
+> My implementation has 2 main components: one for serializing values and one for deserializing them. I worked on handling many different types of data, including strings, numbers, booleans, objects, arrays, functions, as well as special types like Date and Error objects. I also took care of circular references.
+
+
+The most difficult challenge I encountered is: "Handling Circular References".
+I needed to make sure that objects and arrays that refer back to themselves don’t cause an infinite loop. I solved this by using a WeakMap to store and check objects that had already been processed.
+
+## Correctness & Performance Characterization
+
+
+> Describe how you characterized the correctness and performance of your implementation
+
+
+*Correctness*: I wrote `11` tests; these tests take `0.2s` to execute. This includes `1. function 2. date object 3. rrror object 4. nested object 5. array with mixed types 6. empty structures 7. 5 basic data types(string, number, boolean, undefined, null)`.
+
+
+*Performance*: The latency of various subsystems is described in the `"latency"` portion of package.json. The characteristics of my development machines are summarized in the `"dev"` portion of package.json.
+
