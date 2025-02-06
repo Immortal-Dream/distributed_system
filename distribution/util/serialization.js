@@ -12,9 +12,33 @@
     9. Serialize circular objects and arrays
     10. Serialize native functions
 */
+
+const repl = require('repl');
+const builtinModules = repl._builtinLibs;
+
+// Built-in registry for known native objects/constructors.
+const builtinRegistry = new Map([
+  [Object, 'Object'],
+  [Array, 'Array'],
+  [Object.prototype, 'Object.prototype'],
+]);
+
+// Inverse mapping for deserialization.
+const builtinInverseRegistry = {
+  'Object': Object,
+  'Array': Array,
+  'Object.prototype': Object.prototype,
+};
+
 let idCounter = 0;
 let circularReferences = new WeakMap();
 
+/**
+ * Serializes a value into a JSON string.
+ *
+ * @param {*} value - The value to serialize.
+ * @returns {string} - The JSON string representation.
+ */
 function serialize(value) {
   circularReferences = new WeakMap();
   idCounter = 0;
@@ -23,17 +47,21 @@ function serialize(value) {
 }
 
 /**
- * Helper function for serialize().
- * Recursively traverses the value and builds a structured object
- * that includes type tags, values, and (if applicable) unique ids.
+ * Recursively serializes a value into a structured object representation.
+ * Handles primitives, functions, objects, arrays, dates, errors, built-ins, and circular references.
  *
  * @param {*} value - The value to serialize.
- * @returns {object} - A structured representation of the value.
+ * @returns {object} - The structured serialized representation.
  */
 function serializeHelper(value) {
   // Handle null and undefined explicitly.
   if (value === null) return { type: "null" };
   if (value === undefined) return { type: "undefined" };
+
+  // Check if the value is one of the known built-in objects or constructors.
+  if (builtinRegistry.has(value)) {
+    return { type: 'builtin', name: builtinRegistry.get(value) };
+  }
 
   const type = typeof value;
 
@@ -44,20 +72,23 @@ function serializeHelper(value) {
 
   // Handle functions.
   if (type === 'function') {
-    return {
-      // Distinguish native functions from non-native ones.
-      type: value.toString().includes('[native code]') ? "nativefunction" : "function",
-      value: value.toString()
-    };
+    // For functions, first try to locate it in native modules or global objects.
+    const funcInfo = findNativeFunctionPath(value);
+    if (funcInfo) {
+      return { type: 'nativefunction', ...funcInfo };
+    } else {
+      // If not native, fall back to serializing its string representation.
+      return { type: 'function', value: value.toString() };
+    }
   }
 
-  // Handle objects (this covers arrays, Date, Error, plain objects, etc.)
+  // Handle objects (arrays, Date, Error, plain objects, etc.)
   if (type === 'object') {
-    // If seen this object has been seen before, return a reference.
+    // Check for circular references.
     if (circularReferences.has(value)) {
       return { type: "reference", id: circularReferences.get(value) };
     }
-    // Assign a new unique id to this object.
+    // Assign a unique ID for circular reference resolution.
     const currentId = `id${++idCounter}`;
     circularReferences.set(value, currentId);
 
@@ -74,7 +105,7 @@ function serializeHelper(value) {
         value: {
           name: value.name,
           message: value.message,
-          // Capture additional enumerable properties.
+          // Include additional enumerable properties.
           ...Object.fromEntries(Object.entries(value))
         }
       };
@@ -94,7 +125,7 @@ function serializeHelper(value) {
     for (const key in value) {
       if (Object.hasOwnProperty.call(value, key)) {
         const serializedValue = serializeHelper(value[key]);
-        // stringify each property’s serialized representation.
+        // Store each property's serialized representation as a JSON string.
         obj[key] = JSON.stringify(serializedValue);
       }
     }
@@ -104,6 +135,103 @@ function serializeHelper(value) {
   throw new Error(`Unsupported type: ${type}`);
 }
 
+/**
+ * Recursively searches for the target function within an object.
+ * Returns the path (array of property names) if found.
+ *
+ * @param {object} obj - The object to search.
+ * @param {function} targetFunc - The function to locate.
+ * @param {WeakSet} visited - Set of visited objects to avoid cycles.
+ * @param {Array} path - The current property path.
+ * @returns {Array|null} - The path array if found, or null.
+ */
+function findFunctionInObject(obj, targetFunc, visited = new WeakSet(), path = []) {
+  if (visited.has(obj)) return null;
+  visited.add(obj);
+
+  if (obj === targetFunc) return path;
+  if (typeof obj !== 'object' || obj === null) return null;
+
+  const ownProps = Object.getOwnPropertyNames(obj);
+  for (const key of ownProps) {
+    const desc = Object.getOwnPropertyDescriptor(obj, key);
+    if (desc) {
+      if (desc.value !== undefined) {
+        if (
+          desc.value === targetFunc ||
+          (typeof desc.value === 'function' &&
+           desc.value.toString() === targetFunc.toString())
+        ) {
+          return [...path, key];
+        }
+        if (typeof desc.value === 'object' && desc.value !== null) {
+          const result = findFunctionInObject(desc.value, targetFunc, visited, [...path, key]);
+          if (result) return result;
+        }
+      }
+      if (desc.get) {
+        if (
+          desc.get === targetFunc ||
+          (typeof desc.get === 'function' &&
+           desc.get.toString() === targetFunc.toString())
+        ) {
+          return [...path, key];
+        }
+        if (typeof desc.get === 'object' && desc.get !== null) {
+          const result = findFunctionInObject(desc.get, targetFunc, visited, [...path, key]);
+          if (result) return result;
+        }
+      }
+    }
+  }
+
+  // Also search in the object's prototype.
+  const proto = Object.getPrototypeOf(obj);
+  if (proto) {
+    const result = findFunctionInObject(proto, targetFunc, visited, [...path, '__proto__']);
+    if (result) return result;
+  }
+
+  return null;
+}
+
+/**
+ * Attempts to locate the native function's path within built-in modules or global objects.
+ *
+ * @param {function} func - The function to locate.
+ * @returns {object|null} - An object with module and path if found, or null.
+ */
+function findNativeFunctionPath(func) {
+  // Explicit check for console.log.
+  if (func === console.log) {
+    return { module: 'global', path: ['console', 'log'] };
+  }
+  // Check built-in modules.
+  for (const moduleName of builtinModules) {
+    try {
+      const mod = require(moduleName);
+      const path = findFunctionInObject(mod, func);
+      if (path) return { module: moduleName, path };
+    } catch (e) {
+      continue;
+    }
+  }
+  // Check the global object.
+  const globalPath = findFunctionInObject(global, func);
+  if (globalPath) return { module: 'global', path: globalPath };
+  // Check the process object.
+  const processPath = findFunctionInObject(process, func);
+  if (processPath) return { module: 'process', path: processPath };
+
+  return null;
+}
+
+/**
+ * Deserializes a JSON string back into the original value.
+ *
+ * @param {string} serializedString - The JSON string.
+ * @returns {*} - The deserialized value.
+ */
 function deserialize(serializedString) {
   let parsed;
   try {
@@ -115,12 +243,12 @@ function deserialize(serializedString) {
   const objectMap = new Map();
   return deserializeHelper(parsed, objectMap);
 }
+
 /**
- * Helper function for deserialize().
- * Rebuilds the original value from the structured serialized object.
+ * Recursively rebuilds the original value from its serialized representation.
  *
- * @param {object} data - The structured serialized representation.
- * @param {Map} objectMap - A map to store objects by id for resolving references.
+ * @param {object} data - The structured serialized data.
+ * @param {Map} objectMap - Map to resolve circular references.
  * @returns {*} - The deserialized value.
  */
 function deserializeHelper(data, objectMap) {
@@ -139,9 +267,11 @@ function deserializeHelper(data, objectMap) {
       return data.value;
     case "boolean":
       return data.value === "true";
-    
-    // Reconstruct functions using eval (note: use caution with eval).
+    case "builtin":
+      // Return the built-in object or constructor.
+      return builtinInverseRegistry[data.name];
     case "function":
+      // Rebuild non-native functions via eval (caution: use with trusted input).
       try {
         return eval(`(${data.value})`);
       } catch {
@@ -150,9 +280,20 @@ function deserializeHelper(data, objectMap) {
     
     // just simply return the stored string representation.
     case "nativefunction":
-      return data.value;
-    
-    // Reconstruct Date objects.
+      if (data.module && data.path) {
+        let mod;
+        if (data.module === 'global') mod = global;
+        else if (data.module === 'process') mod = process;
+        else mod = require(data.module);
+        let current = mod;
+        for (const key of data.path) {
+          current = current[key];
+          if (current === undefined) throw new Error(`Path ${data.path.join('.')} not found`);
+        }
+        return current;
+      } else {
+        return data.value;
+      }
     case "date": {
       const date = new Date(data.value);
       if (data.id) objectMap.set(data.id, date);
