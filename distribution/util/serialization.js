@@ -53,7 +53,7 @@ function serializeHelper(value) {
 
   // Handle objects (this covers arrays, Date, Error, plain objects, etc.)
   if (type === 'object') {
-    // If we've seen this object before, return a reference.
+    // If seen this object has been seen before, return a reference.
     if (circularReferences.has(value)) {
       return { type: "reference", id: circularReferences.get(value) };
     }
@@ -94,7 +94,7 @@ function serializeHelper(value) {
     for (const key in value) {
       if (Object.hasOwnProperty.call(value, key)) {
         const serializedValue = serializeHelper(value[key]);
-        // We stringify each property’s serialized representation.
+        // stringify each property’s serialized representation.
         obj[key] = JSON.stringify(serializedValue);
       }
     }
@@ -148,8 +148,7 @@ function deserializeHelper(data, objectMap) {
         return () => { throw Error("Deserialization failed") };
       }
     
-    // For native functions, we simply return the stored string representation.
-    // (A more complete solution might map this to an actual native function.)
+    // just simply return the stored string representation.
     case "nativefunction":
       return data.value;
     
