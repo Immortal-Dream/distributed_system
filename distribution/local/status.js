@@ -13,7 +13,13 @@ status.get = function(configuration, callback) {
   callback = callback || function() { };
   // TODO: implement remaining local status items
 
+  // Check if the requested configuration is in the global status
+  if (global.moreStatus.hasOwnProperty(configuration)) {
+    callback(null, global.moreStatus[configuration]);
+    return;
+  }
 
+  // Check if the requested configuration is in the process memory usage
   if (configuration === 'heapTotal') {
     callback(null, process.memoryUsage().heapTotal);
     return;
@@ -27,9 +33,11 @@ status.get = function(configuration, callback) {
 
 
 status.spawn = function(configuration, callback) {
+  callback(new Error('Spawn function not implemented'));
 };
 
 status.stop = function(callback) {
+  callback(new Error('Stop function not implemented'));callback(null, 'Node stopped');
 };
 
 module.exports = status;
