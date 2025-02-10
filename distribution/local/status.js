@@ -6,6 +6,8 @@ const status = {};
 global.moreStatus = {
   sid: id.getSID(global.nodeConfig),
   nid: id.getNID(global.nodeConfig),
+  ip: global.nodeConfig && global.nodeConfig.ip || '127.0.0.1',
+  port: global.nodeConfig && global.nodeConfig.port || 3000,
   counts: 0,
 };
 

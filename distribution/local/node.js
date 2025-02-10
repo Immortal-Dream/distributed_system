@@ -1,7 +1,7 @@
 const http = require('http');
 const url = require('url');
 const log = require('../util/log');
-
+const util = require('../util/util');
 
 /*
     The start function will be called to start your node.
@@ -10,21 +10,31 @@ const log = require('../util/log');
 */
 
 
-const start = function(callback) {
+const start = function (callback) {
   const server = http.createServer((req, res) => {
     /* Your server will be listening for PUT requests. */
 
-    // Write some code...
-
+    // TODO: Write some code...
+    if (req.method !== 'PUT') {
+      res.writeHead(405, { 'Content-Type': 'text/plain' });
+      res.end('Method Not Allowed');
+      return;
+    }
 
     /*
       The path of the http request will determine the service to be used.
       The url will have the form: http://node_ip:node_port/service/method
     */
 
+    // TODO: Write some code...
+    const parsedUrl = url.parse(req.url);
+    const pathParts = parsedUrl.pathname.split('/').filter(part => part !== '');
 
-    // Write some code...
-
+    if (pathParts.length < 3) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not Found');
+      return;
+    }
 
     /*
 
@@ -41,23 +51,68 @@ const start = function(callback) {
       Our nodes expect data in JSON format.
   */
 
-    // Write some code...
+    // TODO: Write some code...
 
 
-      /* Here, you can handle the service requests. */
+    /* Here, you can handle the service requests. */
 
-      // Write some code...
+    // TODO: Write some code...
 
-      const serviceName = service;
+    // const serviceName = service;
+    const serviceName = pathParts[1];
+    const methodName = pathParts[2];
 
 
+    // TODO: Write some code...
+    let body = [];
+    req.on('data', (chunk) => body.push(chunk));
+    req.on('end', () => {
+      let args;
+      try {
+        const rawBody = Buffer.concat(body).toString();
+        args = JSON.parse(rawBody);
+        if (!Array.isArray(args)) {
+          throw new Error('Expected an array of arguments');
+        }
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+        return;
+      }
 
-        // Write some code...
+      const service = global.distribution[serviceName];
+      if (!service) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `Service ${serviceName} not found` }));
+        return;
+      }
 
+      const method = service[methodName];
+      if (typeof method !== 'function') {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `Method ${methodName} not found in service ${serviceName}` }));
+        return;
+      }
+
+      try {
+        method(...args, (error, value) => {
+          if (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: error.message }));
+          } else {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(value));
+          }
+        });
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `Internal server error: ${e.message}` }));
+      }
+    });
   });
 
 
-  // Write some code...
+  // TODO: Write some code...
 
   /*
     Your server will be listening on the port and ip specified in the config

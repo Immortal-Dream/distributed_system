@@ -1,8 +1,6 @@
 /** @typedef {import("../types").Callback} Callback */
 /** @typedef {import("../types").Node} Node */
-const util = distribution.util;
-
-
+const util = require('../util/util');
 
 /**
  * @typedef {Object} Target
@@ -21,47 +19,70 @@ const http = require("http");
  * @return {void}
  */
 function send(message, remote, callback) {
-    // Construct the request options
+    const hasCallback = typeof callback === 'function';
+    let jsonMessage;
+
+    try {
+        jsonMessage = util.serialize(message);
+    } catch (e) {
+        if (hasCallback) {
+            callback(e);
+        }
+        return;
+    }
+
+    const node = remote.node;
+    const path = `/${node.gid}/${remote.service}/${remote.method}`;
     const options = {
-        hostname: remote.node.ip, // Remote node IP
-        port: remote.node.port, // Remote node port
-        path: `/${remote.node.gid}/${remote.service}/${remote.method}`, // Construct the request path
-        method: "PUT",
+        host: node.host,
+        port: node.port,
+        path: path,
+        method: 'PUT',
         headers: {
-            "Content-Type": "application/json"
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(jsonMessage)
         }
     };
-    // Create the HTTP request
+
     const req = http.request(options, (res) => {
-        let data = "";
+        if (!hasCallback) {
+            res.resume(); // Drain the response if no callback
+            return;
+        }
 
-        // Collect data chunks
-        res.on("data", (chunk) => {
-            data += chunk;
-        });
-
-        // Process response
-        res.on("end", () => {
-            try {
-                const response = JSON.parse(data); // Parse JSON response
-                if (response.error) {
-                    callback(new Error(response.error)); // Pass error to callback
-                } else {
-                    callback(null, response.result); // Pass result to callback
+        let chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => {
+            const body = chunks.length > 0 ? Buffer.concat(chunks).toString() : '';
+            if (res.statusCode === 200) {
+                try {
+                    const result = util.deserialize(body);
+                    callback(null, result);
+                } catch (e) {
+                    callback(new Error('Failed to parse JSON response'));
                 }
-            } catch (err) {
-                callback(new Error("Invalid JSON response"));
+            } else {
+                let errMsg;
+                try {
+                    const errorBody = util.deserialize(body);
+                    errMsg = errorBody.error || body;
+                } catch (e) {
+                    errMsg = body;
+                }
+                const error = new Error(`Request failed with status code ${res.statusCode}: ${errMsg}`);
+                error.statusCode = res.statusCode;
+                callback(error);
             }
         });
     });
 
-    // Handle request errors
-    req.on("error", (err) => {
-        callback(err);
+    req.on('error', (err) => {
+        if (hasCallback) {
+            callback(err);
+        }
     });
 
-    // Send the request with the serialized message
-    req.write(JSON.stringify({ args: message }));
+    req.write(jsonMessage);
     req.end();
 }
 
