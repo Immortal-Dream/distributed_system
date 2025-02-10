@@ -14,7 +14,7 @@ const start = function (callback) {
   const server = http.createServer((req, res) => {
     /* Your server will be listening for PUT requests. */
 
-    // TODO: Write some code...
+    // Write some code...
     if (req.method !== 'PUT') {
       res.writeHead(405, { 'Content-Type': 'text/plain' });
       res.end('Method Not Allowed');
@@ -26,15 +26,17 @@ const start = function (callback) {
       The url will have the form: http://node_ip:node_port/service/method
     */
 
-    // TODO: Write some code...
+    // Write some code...
     const parsedUrl = url.parse(req.url);
     const pathParts = parsedUrl.pathname.split('/').filter(part => part !== '');
-
-    if (pathParts.length < 3) {
+    if (pathParts.length < 2) {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       res.end('Not Found');
       return;
     }
+    const gid = pathParts[0];
+    const serviceName = pathParts[1];
+    const methodName = pathParts[2];
 
     /*
 
@@ -51,22 +53,23 @@ const start = function (callback) {
       Our nodes expect data in JSON format.
   */
 
-    // TODO: Write some code...
-
-
-    /* Here, you can handle the service requests. */
-
-    // TODO: Write some code...
-
-    // const serviceName = service;
-    const serviceName = pathParts[1];
-    const methodName = pathParts[2];
-
-
-    // TODO: Write some code...
+    // Write some code...
     let body = [];
-    req.on('data', (chunk) => body.push(chunk));
+
+    req.on('data', (chunk) => {
+      // Collect each chunk of data.
+      body.push(chunk);
+    });
+
     req.on('end', () => {
+
+      /* Here, you can handle the service requests.
+      Use the local routes service to get the service you need to call.
+      You need to call the service with the method and arguments provided in the request.
+      Then, you need to serialize the result and send it back to the caller.
+      */
+
+      // Write some code...
       let args;
       try {
         const rawBody = Buffer.concat(body).toString();
@@ -80,7 +83,7 @@ const start = function (callback) {
         return;
       }
 
-      const service = global.distribution[serviceName];
+      const service = global.distribution[gid] && global.distribution[gid][serviceName];
       if (!service) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: `Service ${serviceName} not found` }));

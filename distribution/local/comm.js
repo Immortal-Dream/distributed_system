@@ -23,7 +23,8 @@ function send(message, remote, callback) {
     let jsonMessage;
 
     try {
-        jsonMessage = util.serialize(message);
+        jsonMessage = JSON.stringify(message);
+        // jsonMessage = util.serialize(message);
     } catch (e) {
         if (hasCallback) {
             callback(e);
@@ -32,7 +33,9 @@ function send(message, remote, callback) {
     }
 
     const node = remote.node;
-    const path = `/${node.gid}/${remote.service}/${remote.method}`;
+    console.log(node);
+    const gid = node.gid || "local"; 
+    const path = `/${gid}/${remote.service}/${remote.method}`;
     const options = {
         host: node.host,
         port: node.port,
@@ -56,7 +59,10 @@ function send(message, remote, callback) {
             const body = chunks.length > 0 ? Buffer.concat(chunks).toString() : '';
             if (res.statusCode === 200) {
                 try {
-                    const result = util.deserialize(body);
+                    // const result = util.deserialize(body);
+                    // DEBUG: 
+                    const result = JSON.parse(body);
+                    console.log(result);
                     callback(null, result);
                 } catch (e) {
                     callback(new Error('Failed to parse JSON response'));
@@ -64,7 +70,9 @@ function send(message, remote, callback) {
             } else {
                 let errMsg;
                 try {
-                    const errorBody = util.deserialize(body);
+                    // const errorBody = util.deserialize(body);
+                    // DEBUG
+                    const errorBody = JSON.parse(body);
                     errMsg = errorBody.error || body;
                 } catch (e) {
                     errMsg = body;

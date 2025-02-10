@@ -4,7 +4,8 @@
  * Routes service: Manages mapping between service names and configurations.
  */
 const services = {};
-
+const status = require('./status');
+services['status'] = status;
 /**
  * Get a service object by name
  * @param {string} configuration
