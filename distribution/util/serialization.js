@@ -253,9 +253,10 @@ function deserialize(serializedString) {
  */
 function deserializeHelper(data, objectMap) {
   if (!data || typeof data !== 'object' || !data.type) {
+    console.log("Data" + data);
     throw new Error("Invalid serialized structure");
   }
-
+  console.log("Succ" + data);
   switch (data.type) {
     case "null":
       return null;

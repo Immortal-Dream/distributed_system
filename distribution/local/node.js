@@ -73,27 +73,29 @@ const start = function (callback) {
       let args;
       try {
         const rawBody = Buffer.concat(body).toString();
-        args = JSON.parse(rawBody);
+        // debug 
+        // args = JSON.parse(rawBody);
+        args = util.deserialize(rawBody);
         if (!Array.isArray(args)) {
           throw new Error('Expected an array of arguments');
         }
       } catch (e) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
+        res.end(util.serialize({ error: e.message }));
         return;
       }
 
       const service = global.distribution[gid] && global.distribution[gid][serviceName];
       if (!service) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: `Service ${serviceName} not found` }));
+        res.end(util.serialize({ error: `Service ${serviceName} not found` }));
         return;
       }
 
       const method = service[methodName];
       if (typeof method !== 'function') {
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: `Method ${methodName} not found in service ${serviceName}` }));
+        res.end(util.serialize({ error: `Method ${methodName} not found in service ${serviceName}` }));
         return;
       }
 
@@ -101,15 +103,15 @@ const start = function (callback) {
         method(...args, (error, value) => {
           if (error) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: error.message }));
+            res.end(util.serialize({ error: error.message }));
           } else {
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(value));
+            res.end(util.serialize(value));
           }
         });
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: `Internal server error: ${e.message}` }));
+        res.end(util.serialize({ error: `Internal server error: ${e.message}` }));
       }
     });
   });

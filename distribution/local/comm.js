@@ -23,8 +23,11 @@ function send(message, remote, callback) {
     let jsonMessage;
 
     try {
-        jsonMessage = JSON.stringify(message);
-        // jsonMessage = util.serialize(message);
+        console.log("1 Message: "+message);
+        jsonMessage = util.serialize(message);
+        console.log("2 jsonMessage: "+jsonMessage);
+        console.log("3 Util Json Message: "+ util.serialize(message));
+        
     } catch (e) {
         if (hasCallback) {
             callback(e);
@@ -33,7 +36,6 @@ function send(message, remote, callback) {
     }
 
     const node = remote.node;
-    console.log(node);
     const gid = node.gid || "local"; 
     const path = `/${gid}/${remote.service}/${remote.method}`;
     const options = {
@@ -57,22 +59,21 @@ function send(message, remote, callback) {
         res.on('data', (chunk) => chunks.push(chunk));
         res.on('end', () => {
             const body = chunks.length > 0 ? Buffer.concat(chunks).toString() : '';
+            // DEBUG: 
+            console.log("Body"+body);
             if (res.statusCode === 200) {
                 try {
-                    // const result = util.deserialize(body);
-                    // DEBUG: 
-                    const result = JSON.parse(body);
-                    console.log(result);
+                    const result = util.deserialize(body);     
+                    console.log("result: " + result);
                     callback(null, result);
                 } catch (e) {
+                    console.log(e);
                     callback(new Error('Failed to parse JSON response'));
                 }
             } else {
                 let errMsg;
                 try {
-                    // const errorBody = util.deserialize(body);
-                    // DEBUG
-                    const errorBody = JSON.parse(body);
+                    const errorBody = util.deserialize(body);
                     errMsg = errorBody.error || body;
                 } catch (e) {
                     errMsg = body;
