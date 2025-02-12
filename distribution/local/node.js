@@ -73,8 +73,6 @@ const start = function (callback) {
       let args;
       try {
         const rawBody = Buffer.concat(body).toString();
-        // debug 
-        // args = JSON.parse(rawBody);
         args = util.deserialize(rawBody);
         if (!Array.isArray(args)) {
           throw new Error('Expected an array of arguments');

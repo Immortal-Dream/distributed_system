@@ -11,8 +11,8 @@ global.moreStatus = {
   counts: 0,
 };
 
-status.get = function(configuration, callback) {
-  callback = callback || function() { };
+status.get = function (configuration, callback) {
+  callback = callback || function () { };
   // TODO: implement remaining local status items
 
   // Check if the requested configuration is in the global status

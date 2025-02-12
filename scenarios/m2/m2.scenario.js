@@ -1,5 +1,5 @@
-const distribution = require('../../config.js');
-
+const distribution = require('@brown-ds/distribution');
+// 
 test('(2 pts) (scenario) simple callback practice', () => {
   /* Collect the result of 3 callback services in list  */
   const results = [];
@@ -90,55 +90,60 @@ test('(2 pts) (scenario) collect errors and successful results', (done) => {
 });
 
 test('(5 pts) (scenario) use rpc', (done) => {
-  let n = 0;
-  let addOne = () => {
-    return ++n;
+  // Move the state into an object
+  const localState = {
+    n: 0,
+    addOne() {
+      return ++this.n;
+    },
   };
 
-  const node = {ip: '127.0.0.1', port: 9009};
+  const node = { ip: '127.0.0.1', port: 9009 };
 
-  // Define an RPC service containing the addOne function
+  // Bind the addOne function to the localState so that 'this.n' is defined.
+  let addOneRPC = localState.addOne.bind(localState);
+
   const rpcService = {
-    addOne: addOne,
+    addOne: addOneRPC,
   };
 
   distribution.node.start((server) => {
     function cleanup(callback) {
       server.close();
       distribution.local.comm.send([],
-          {node: node, service: 'status', method: 'stop'},
-          callback);
+        { node: node, service: 'status', method: 'stop' },
+        callback);
     }
 
     // Spawn the remote node.
     distribution.local.status.spawn(node, (e, v) => {
       // Install the addOne service on the remote node with the name 'addOneService'.
       distribution.local.comm.send([rpcService, 'addOneService'],
-          {node: node, service: 'routes', method: 'put'}, (e, v) => {
-            // Call the addOne service on the remote node. This should actually call the addOne function on this code using RPC.
-            distribution.local.comm.send([],
-                {node: node, service: 'addOneService', method: 'addOne'}, (e, v) => {
-                  // Call the addOne service on the remote node again.
+        { node: node, service: 'routes', method: 'put' }, (e, v) => {
+          // Call the addOne service on the remote node. This should actually call the addOne function on this code using RPC.
+          distribution.local.comm.send([],
+            { node: node, service: 'addOneService', method: 'addOne' }, (e, v) => {
+              // Call the addOne service on the remote node again.
+              distribution.local.comm.send([],
+                { node: node, service: 'addOneService', method: 'addOne' }, (e, v) => {
+                  // Call the addOne service on the remote node a third time.
                   distribution.local.comm.send([],
-                      {node: node, service: 'addOneService', method: 'addOne'}, (e, v) => {
-                        // Call the addOne service on the remote node again. Since we called the addOne function three times, the result should be 3.
-                        distribution.local.comm.send([],
-                            {node: node, service: 'addOneService', method: 'addOne'}, (e, v) => {
-                              try {
-                                expect(e).toBeFalsy();
-                                expect(v).toBe(3);
-                                /* The local variable n should also be 3. Remember: The addOne RPC is actually invoking the addOne function locally. */
-                                expect(n).toBe(3);
-                                cleanup(done);
-                              } catch (error) {
-                                cleanup(() => {
-                                  done(error);
-                                });
-                              }
-                            });
-                      });
+                    { node: node, service: 'addOneService', method: 'addOne' }, (e, v) => {
+                      try {
+                        expect(e).toBeFalsy();
+                        expect(v).toBe(3);
+                        // The local state variable localState.n should also be 3.
+                        expect(localState.n).toBe(3);
+                        cleanup(done);
+                      } catch (error) {
+                        cleanup(() => {
+                          done(error);
+                        });
+                      }
+                    });
                 });
-          });
+            });
+        });
     });
   });
 });

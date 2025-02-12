@@ -23,10 +23,11 @@ function send(message, remote, callback) {
     let jsonMessage;
 
     try {
-        console.log("1 Message: "+message);
+        // DEBUG
+        // console.log("1 Message: "+message);
         jsonMessage = util.serialize(message);
-        console.log("2 jsonMessage: "+jsonMessage);
-        console.log("3 Util Json Message: "+ util.serialize(message));
+        // console.log("2 jsonMessage: "+jsonMessage);
+        // console.log("3 Util Json Message: "+ util.serialize(message));
         
     } catch (e) {
         if (hasCallback) {
@@ -59,12 +60,11 @@ function send(message, remote, callback) {
         res.on('data', (chunk) => chunks.push(chunk));
         res.on('end', () => {
             const body = chunks.length > 0 ? Buffer.concat(chunks).toString() : '';
-            // DEBUG: 
-            console.log("Body"+body);
+            // console.log("Body"+body);
             if (res.statusCode === 200) {
                 try {
                     const result = util.deserialize(body);     
-                    console.log("result: " + result);
+                    // console.log("result: " + result); DEBUG
                     callback(null, result);
                 } catch (e) {
                     console.log(e);

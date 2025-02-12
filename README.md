@@ -96,3 +96,18 @@ I needed to make sure that objects and arrays that refer back to themselves donâ
 
 *Performance*: The latency of various subsystems is described in the `"latency"` portion of package.json. The characteristics of my development machines are summarized in the `"dev"` portion of package.json.
 
+# M2: Actors and Remote Procedure Calls (RPC)
+
+
+## Summary
+My implementation comprises 3 software components, totaling 150 lines of code.
+
+One of the key challenges I faced were:
+ Handling Remote Communication â€“ I had to ensure that my comm module correctly sent and received messages between nodes. At first, my requests failed because the data format was incorrect. This was caused by inconsistant data format: some messages are serialized by JSON.stringfy and some of them are converted by the serialize function in M1. I fixed this by carefully structuring the JSON payload with functions in mile stone 1 and making sure the server properly parsed it.
+
+## Correctness & Performance Characterization
+
+*Correctness*: I wrote 6 tests; these tests take `0.275` to execute.
+
+
+*Performance*: I characterized the performance of `comm` by sending 1000 service requests in a tight loop. Average throughput and latency is recorded in `package.json`'s m2 section.
