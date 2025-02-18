@@ -13,8 +13,6 @@ global.moreStatus = {
 
 status.get = function (configuration, callback) {
   callback = callback || function () { };
-  // TODO: implement remaining local status items
-
   // Check if the requested configuration is in the global status
   if (global.moreStatus.hasOwnProperty(configuration)) {
     callback(null, global.moreStatus[configuration]);

@@ -1,5 +1,7 @@
+const id = require('../util/id');
+// TODO: Initialize the all and local by default
 // Local storage for the mapping of group names to node sets
-var groupsMapping = {};
+
 
 // The groups service object
 var groups = {};
@@ -10,11 +12,11 @@ var groups = {};
  * @param {function} callback - Callback function(err, result)
  */
 groups.get = function(name, callback) {
-    if (!groupsMapping.hasOwnProperty(name)) {
+    if (!groups.hasOwnProperty(name)) {
       // Group not found: return an error and false value.
       return callback(new Error("Group not found: " + name), false);
     }
-    callback(null, groupsMapping[name]);
+    callback(null, groups[name]);
   };
   
 
@@ -28,11 +30,9 @@ groups.get = function(name, callback) {
  * @param {function} callback - Callback function(err, result)
  */
 groups.put = function(name, config, callback) {
-    groupsMapping[name] = config;
+    groups[name] = config;
     // Dynamically instantiate the distributed version of each service for this group.
-    if (typeof distribution !== "undefined") {
-      distribution[name] = {}; 
-    }
+    distribution[name] = config; 
     if (typeof callback === "function") {
       callback(null, config);
     }
@@ -46,14 +46,14 @@ groups.put = function(name, config, callback) {
  * @param {function} callback - Callback function(err, result)
  */
 groups.del = function(name, callback) {
-    if (!groupsMapping.hasOwnProperty(name)) {
+    if (!groups.hasOwnProperty(name)) {
       // Group not found: return an error and false value.
       return callback(new Error("Group not found: " + name), false);
     }
     // Capture the group mapping before deletion.
-    const deletedGroup = groupsMapping[name];
+    const deletedGroup = groups[name];
     // Delete the group mapping.
-    delete groupsMapping[name];
+    delete groups[name];
     // Also remove the corresponding distribution entry if it exists.
     if (typeof distribution !== "undefined" && distribution.hasOwnProperty(name)) {
       delete distribution[name];
@@ -82,7 +82,7 @@ function getSID(node) {
  * @param {function} [callback] - Optional callback function(err, result)
  */
 groups.add = function(name, node, callback) {
-    if (!groupsMapping.hasOwnProperty(name)) {
+    if (!groups.hasOwnProperty(name)) {
       if (typeof callback === "function") {
         return callback(new Error("Group not found: " + name), false);
       }
@@ -90,11 +90,12 @@ groups.add = function(name, node, callback) {
     }
     // Use the provided id.getSID function to compute the node's SID.
     const sid = (typeof node === "object") ? id.getSID(node) : node;
-    groupsMapping[name][sid] = node;
+    groups[name][sid] = node;
     if (typeof callback === "function") {
-      callback(null, groupsMapping[name]);
+      callback(null, groups[name]);
     }
   };
+
 /**
  * Remove a node from the specified group.
  * If the group or the node does not exist, this is a no-op.
@@ -104,7 +105,7 @@ groups.add = function(name, node, callback) {
  * @param {function} [callback] - Optional callback function(err, result)
  */
 groups.rem = function(name, node, callback) {
-  if (!groupsMapping[name]) {
+  if (!groups[name]) {
     // Group does not exist; no-op.
     if (typeof callback === "function") {
       callback(null, undefined);
@@ -112,11 +113,11 @@ groups.rem = function(name, node, callback) {
     return;
   }
   var sid = (typeof node === "object") ? getSID(node) : node;
-  if (groupsMapping[name].hasOwnProperty(sid)) {
-    delete groupsMapping[name][sid];
+  if (groups[name].hasOwnProperty(sid)) {
+    delete groups[name][sid];
   }
   if (typeof callback === "function") {
-    callback(null, groupsMapping[name]);
+    callback(null, groups[name]);
   }
 };
 

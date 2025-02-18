@@ -3,6 +3,7 @@ const url = require('url');
 const log = require('../util/log');
 const util = require('../util/util');
 
+const routes = require('./routes');
 /*
     The start function will be called to start your node.
     It will take a callback as an argument.
@@ -29,14 +30,20 @@ const start = function (callback) {
     // Write some code...
     const parsedUrl = url.parse(req.url);
     const pathParts = parsedUrl.pathname.split('/').filter(part => part !== '');
-    if (pathParts.length < 2) {
+    
+    let gid, serviceName, methodName;
+    if (pathParts.length === 3) {
+      // Path has the form /<gid>/<service>/<method>
+      [gid, serviceName, methodName] = pathParts;
+    } else if (pathParts.length === 2) {
+      // Path has the form /<service>/<method>; default gid to "local"
+      gid = 'local';
+      [serviceName, methodName] = pathParts;
+    } else {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       res.end('Not Found');
       return;
     }
-    const gid = pathParts[0];
-    const serviceName = pathParts[1];
-    const methodName = pathParts[2];
 
     /*
 
@@ -62,14 +69,6 @@ const start = function (callback) {
     });
 
     req.on('end', () => {
-
-      /* Here, you can handle the service requests.
-      Use the local routes service to get the service you need to call.
-      You need to call the service with the method and arguments provided in the request.
-      Then, you need to serialize the result and send it back to the caller.
-      */
-
-      // Write some code...
       let args;
       try {
         const rawBody = Buffer.concat(body).toString();
@@ -83,49 +82,43 @@ const start = function (callback) {
         return;
       }
 
-      const service = global.distribution[gid] && global.distribution[gid][serviceName];
-      if (!service) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(util.serialize({ error: `Service ${serviceName} not found` }));
-        return;
-      }
-
-      const method = service[methodName];
-      if (typeof method !== 'function') {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(util.serialize({ error: `Method ${methodName} not found in service ${serviceName}` }));
-        return;
-      }
-
-      try {
-        method(...args, (error, value) => {
-          if (error) {
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(util.serialize({ error: error.message }));
-          } else {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(util.serialize(value));
-          }
-        });
-      } catch (e) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(util.serialize({ error: `Internal server error: ${e.message}` }));
-      }
+      // Use routes.get with a configuration object so that the group is respected.
+      routes.get({ service: serviceName, gid: gid }, (err, service) => {
+        if (err) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(util.serialize({ error: err.message }));
+          return;
+        }
+  
+        const method = service[methodName];
+        if (typeof method !== 'function') {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(util.serialize({ error: `Method ${methodName} not found in service ${serviceName}` }));
+          return;
+        }
+  
+        try {
+          method(...args, (error, value) => {
+            if (error) {
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(util.serialize({ error: error.message }));
+            } else {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(util.serialize(value));
+            }
+          });
+        } catch (e) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(util.serialize({ error: `Internal server error: ${e.message}` }));
+        }
+      });
     });
   });
 
-
-  // TODO: Write some code...
-
   /*
-    Your server will be listening on the port and ip specified in the config
-    You'll be calling the `callback` callback when your server has successfully
-    started.
-
-    At some point, we'll be adding the ability to stop a node
-    remotely through the service interface.
+    Your server will be listening on the port and ip specified in the config.
+    When the server has successfully started, call the provided callback.
   */
-
   server.listen(global.nodeConfig.port, global.nodeConfig.ip, () => {
     log(`Server running at http://${global.nodeConfig.ip}:${global.nodeConfig.port}/`);
     global.distribution.node.server = server;
@@ -133,7 +126,6 @@ const start = function (callback) {
   });
 
   server.on('error', (error) => {
-    // server.close();
     log(`Server error: ${error}`);
     throw error;
   });
