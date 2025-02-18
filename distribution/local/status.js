@@ -1,6 +1,6 @@
 const id = require('../util/id');
 const log = require('../util/log');
-const brownDistribution = require('@brown-ds/distribution');
+
 
 const status = {};
 
@@ -33,8 +33,13 @@ status.get = function (configuration, callback) {
 };
 
 
-status.spawn = brownDistribution.local.status.spawn
+status.spawn = function(configuration, callback) {
 
-status.stop = brownDistribution.local.status.stop
+};
+
+status.stop = function(callback) {
+  
+};
+
 
 module.exports = status;
