@@ -23,15 +23,10 @@ function comm(config) {
    */
   function send(message, configuration, callback) {
     let targetNodes = [];
-    console.log("Configuration",JSON.stringify(configuration));
-    if (configuration.node) {
-      // If a specific node is provided, target only that node.
-      targetNodes.push(configuration.node);
-    } else {
-      // Otherwise, get all nodes from the group membership.
-      const groupNodes = getGroupNodes(context.gid);
-      targetNodes = Object.values(groupNodes);
-    }
+
+    // add nodes to targetNodes
+    console.log("configuration",JSON.stringify(configuration.node));
+    targetNodes.push(configuration.node);
 
     // If there are no target nodes, immediately invoke the callback.
     if (targetNodes.length === 0) {
@@ -40,7 +35,7 @@ function comm(config) {
     // Prepare objects to collect aggregated errors and results.
     const aggregatedErrors = {};
     const aggregatedResults = {};
-    let pending = targetNodes.length;
+    let count = 0;
 
     targetNodes.forEach((node) => {
       const remote = {
@@ -54,7 +49,8 @@ function comm(config) {
         } else {
           aggregatedResults[node.nid] = result;
         }
-        if (--pending === 0) {
+        count++;
+        if (count === targetNodes.length) {
           callback(aggregatedErrors, aggregatedResults);
         }
       });
