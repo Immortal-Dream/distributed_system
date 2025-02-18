@@ -4,7 +4,9 @@ const id = distribution.util.id;
 const n1 = { ip: '127.0.0.1', port: 8000 };
 const n2 = { ip: '127.0.0.1', port: 8001 };
 const n3 = { ip: '127.0.0.1', port: 8002 };
-const allNodes = [n1, n2, n3];
+const n4 = { ip: '127.0.0.1', port: 8003 };
+const n5 = { ip: '127.0.0.1', port: 8004 };
+const allNodes = [n1, n2, n3, n4, n5];
 
 
 test('(5 pts) (scenario) create group', (done) => {
@@ -17,7 +19,8 @@ test('(5 pts) (scenario) create group', (done) => {
   groupA[id.getSID(n1)] = n1;
   groupA[id.getSID(n2)] = n2;
   groupA[id.getSID(n3)] = n3;
-
+  groupA[id.getSID(n4)] = n4;
+  groupA[id.getSID(n5)] = n5;
   const nids = allNodes.map((node) => id.getNID(node));
 
   // Use distribution.local.groups.put to add groupA to the local node
@@ -38,8 +41,8 @@ test('(5 pts) (scenario) dynamic group membership', (done) => {
             with nodes n1 and n2. Validate that the distributed status service reflects
             the updated group membership on all nodes.
         */
-  const groupB = {};
-  const initialNodes = {
+
+  const groupB = {
     [id.getSID(n1)]: n1,
     [id.getSID(n2)]: n2,
   };
@@ -50,7 +53,7 @@ test('(5 pts) (scenario) dynamic group membership', (done) => {
   const config = { gid: 'groupB' };
 
   // Create the group with initial nodes
-  distribution.local.groups.put(config, initialNodes, (e, v) => {
+  distribution.local.groups.put(config, groupB, (e, v) => {
     // Add a new node dynamically to the group
     // Dynamically add n3 to the group
     distribution.local.groups.add('groupB', n3, (e, v) => {
@@ -113,13 +116,12 @@ test('(5 pts) (scenario) group relativity', (done) => {
   });
 });
 
-
 test('(5 pts) (scenario) use the gossip service', (done) => {
   /*
       First, create group groupD a number of nodes of your choosing.
       Then, using the groups.put method,  a new group is created called 'newgroup'.
       Add a new node to 'newgroup' using the gossip service to propagate the new group membership to all (or a subset of) nodes in groupD.
-
+  
       Experiment with:
       1. The number of nodes in groupD
       2. The subset function used in the gossip service
@@ -127,68 +129,54 @@ test('(5 pts) (scenario) use the gossip service', (done) => {
       4. The time delay between adding the new node to 'newgroup' and checking the group membership in groupD
   */
 
-  // Create groupD in an appropriate way...
-  // Create groupD with 5 nodes
-  const groupD = {
-    node1: { ip: '127.0.0.1', port: 1111 },
-    node2: { ip: '127.0.0.1', port: 2222 },
-    node3: { ip: '127.0.0.1', port: 3333 },
-    node4: { ip: '127.0.0.1', port: 4444 },
-    node5: { ip: '127.0.0.1', port: 5555 },
-  };
-
-  // How many nodes are expected to receive the new group membership?
-  // Experiment with 3 nodes in groupD
-  let nExpected = 3;
-
-  // Experiment with the subset function used in the gossip service...
-  let config = {
-    gid: 'groupD',
-    subset: (lst) => {
-      const half = Math.ceil(lst.length / 2);
-      return lst.slice(0, half);
-    },
-  };
-
-  // Instantiated groupD
-  distribution.local.groups.put(config, groupD, (e, v) => {
-    distribution.groupD.groups.put(config, groupD, (e, v) => {
-      // Created group 'newgroup' (this will be the group that we add a new node to)
-      distribution.groupD.groups.put('newgroup', {}, (e, v) => {
-        const newNode = { ip: '127.0.0.1', port: 4444 };
-        const message = [
-          'newgroup',
-          newNode,
-        ];
-        const remote = { service: 'groups', method: 'add' };
-        // Adding a new node to 'newgroup' using the gossip service
-        distribution.groupD.gossip.send(message, remote, (e, v) => {
-          // Experiment with the time delay between adding the new node to 'newgroup' and checking the group membership in groupD...
-          let delay = 0;
-          setTimeout(() => {
-            distribution.groupD.groups.get('newgroup', (e, v) => {
-              let count = 0;
-              for (const k in v) {
-                if (Object.keys(v[k]).length > 0) {
-                  count++;
+    // Create groupD in an appropriate way...
+    const groupD = {};
+    allNodes.forEach((node) => {  groupD[id.getSID(node)] = node; });
+    // How many nodes are expected to receive the new group membership?
+    let nExpected = 2;
+  
+    // Experiment with the subset function used in the gossip service...
+    let config = {gid: 'groupD', subset: (lst) => 2};
+  
+    // Instantiated groupD
+    distribution.local.groups.put(config, groupD, (e, v) => {
+      distribution.groupD.groups.put(config, groupD, (e, v) => {
+        // Created group 'newgroup' (this will be the group that we add a new node to)
+        distribution.groupD.groups.put('newgroup', {}, (e, v) => {
+          const newNode = {ip: '127.0.0.1', port: 4444};
+          const message = [
+            'newgroup',
+            newNode,
+          ];
+          const remote = {service: 'groups', method: 'add'};
+          // Adding a new node to 'newgroup' using the gossip service
+          distribution.groupD.gossip.send(message, remote, (e, v) => {
+            // Experiment with the time delay between adding the new node to 'newgroup' and checking the group membership in groupD...
+            let delay = 0;
+            setTimeout(() => {
+              distribution.groupD.groups.get('newgroup', (e, v) => {
+                let count = 0;
+                for (const k in v) {
+                  if (Object.keys(v[k]).length > 0) {
+                    count++;
+                  }
                 }
-              }
-              /* Gossip only provides weak guarantees */
-              try {
-                expect(count).toBeGreaterThanOrEqual(nExpected);
-                done();
-              } catch (error) {
-                done(error);
-              }
-            });
-          }, delay);
+                /* Gossip only provides weak guarantees */
+                try {
+                  expect(count).toBeGreaterThanOrEqual(nExpected);
+                  done();
+                } catch (error) {
+                  done(error);
+                }
+              });
+            }, delay);
+          });
         });
       });
     });
   });
-});
-
-
+  
+  
 /*
     This is the setup for the test scenario.
     Do not modify the code below.
