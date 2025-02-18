@@ -114,6 +114,7 @@ beforeAll((done) => {
           .put(mygroupConfig, mygroupGroup, (e, v) => {
             done();
           });
+      console.log('Group Instantiation: ', JSON.stringify(distribution.mygroup));
     };
 
 

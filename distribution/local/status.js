@@ -1,5 +1,6 @@
 const id = require('../util/id');
 const log = require('../util/log');
+const brownDistribution = require('@brown-ds/distribution');
 
 const status = {};
 
@@ -32,12 +33,8 @@ status.get = function (configuration, callback) {
 };
 
 
-status.spawn = function(configuration, callback) {
-  callback(new Error('Spawn function not implemented'));
-};
+status.spawn = brownDistribution.local.status.spawn
 
-status.stop = function(callback) {
-  callback(new Error('Stop function not implemented'));callback(null, 'Node stopped');
-};
+status.stop = brownDistribution.local.status.stop
 
 module.exports = status;

@@ -19,6 +19,7 @@ const http = require("http");
  * @return {void}
  */
 function send(message, remote, callback) {
+    
     const hasCallback = typeof callback === 'function';
     let jsonMessage;
 

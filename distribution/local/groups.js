@@ -1,4 +1,6 @@
 const id = require('../util/id');
+const distribution = require('../../config.js');
+
 // TODO: Initialize the all and local by default
 // Local storage for the mapping of group names to node sets
 
